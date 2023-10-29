@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package ypcap0;
+
+message Packet {
+  string srcAddress = 1;
+  string dstAddress = 2;
+  int32 srcPort = 3;
+  int32 dstPort = 4;
+  int32 size = 5;
+}
+
