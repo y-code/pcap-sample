@@ -1,6 +1,7 @@
-#include "y-pcap-service.h"
+#include <boost/beast/core/detail/base64.hpp>
 #include <netinet/ip.h>
 #include "packet.pb.h"
+#include "y-pcap-service.h"
 
 YPcap0Service::YPcap0Service() {
     std::cout << "Constructing " << typeid(this).name() << "..." << std::endl;
@@ -28,13 +29,13 @@ int YPcap0Service::Run(std::string *dev) const {
     if (result) return result;
 
     // Grab packages
-    // result = this->ProcessNext(handle);
+    //result = this->ProcessNext(handle);
     //result = this->Process(handle, 10);
     result = this->Process(handle, 0);
     
     pcap_close(handle);
 
-    return 0;
+    return result;
 }
 
 int YPcap0Service::GetDevice(std::string **dev, bpf_u_int32 *net, bpf_u_int32 *mask) const {
@@ -134,12 +135,15 @@ int YPcap0Service::Process(pcap_t *handle, int cnt) const {
                 std::cerr << "Encountered an unexpected result. (" << result << ")" << std::endl;
             break;
     }
+    return 0;
 }
 
 void YPcap0Service::HandlePacket(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
-    std::cout << "Jacked a packet with length of " << h->len << std::endl;
+    std::cout << "=====================================" << std::endl;
+    std::cout << "Sniffed a packet with length of " << h->len << std::endl;
     ypcap0::Packet pkt;
     struct ip *ip_header = (struct ip*)(bytes + 14);
+    char* base64 = new char[256];
 
     char src_ip[INET_ADDRSTRLEN], dst_ip[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &(ip_header->ip_src), src_ip, INET_ADDRSTRLEN);
@@ -153,6 +157,13 @@ void YPcap0Service::HandlePacket(u_char *user, const struct pcap_pkthdr *h, cons
     std::string serializedData;
     pkt.SerializeToString(&serializedData);
 
-    std::cout << "Serialized: " << serializedData << std::endl;
+    //boost::beast::detail::base64::encode(base64, serializedData.c_str(), serializedData.length());
+    boost::beast::detail::base64::encode(base64, &serializedData[0], serializedData.length());
+    std::string strBase64(base64);
+
+    delete[] base64;
+
+    std::cout << "Serialized: " << strBase64 << std::endl;
+    std::cout << "=====================================" << std::endl;
 }
 
