@@ -31,6 +31,8 @@
 *.out
 *.app
 
+*.swp
+
 # Typical build workspace directory
 build
 

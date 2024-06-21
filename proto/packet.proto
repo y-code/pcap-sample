@@ -2,11 +2,12 @@ syntax = "proto3";
 
 package ypcap0;
 
-message Packet {
-  string srcAddress = 1;
-  string dstAddress = 2;
-  int32 srcPort = 3;
-  int32 dstPort = 4;
-  int32 size = 5;
+message IpPacket {
+  bool v6 = 1;
+  string srcAddress = 2;
+  string dstAddress = 3;
+  uint32 srcPort = 4;
+  uint32 dstPort = 5;
+  uint32 size = 6;
 }
 

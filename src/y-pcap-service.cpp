@@ -1,4 +1,5 @@
 #include <boost/beast/core/detail/base64.hpp>
+#include <net/ethernet.h>
 #include <netinet/ip.h>
 #include "packet.pb.h"
 #include "y-pcap-service.h"
@@ -140,10 +141,21 @@ int YPcap0Service::Process(pcap_t *handle, int cnt) const {
 
 void YPcap0Service::HandlePacket(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
     std::cout << "=====================================" << std::endl;
-    std::cout << "Sniffed a packet with length of " << h->len << std::endl;
-    ypcap0::Packet pkt;
-    struct ip *ip_header = (struct ip*)(bytes + 14);
+    std::cout << "Packet Length: " << h->len << std::endl;
+
+    struct ether_header *eth_hdr = (struct ether_header*)bytes;
+    u_short ether_type = ntohs(eth_hdr->ether_type);
+
+    std::cout << "Ether Type: " << ether_type << std::endl;
+
+    if (ether_type != ETHERTYPE_IP)
+        return;
+
+    ypcap0::IpPacket pkt;
+    struct ip *ip_header = (struct ip*)(bytes + sizeof(struct ether_header));
     char* base64 = new char[256];
+
+    std::cout << "IP Version: " << ip_header->ip_v << std::endl;
 
     char src_ip[INET_ADDRSTRLEN], dst_ip[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &(ip_header->ip_src), src_ip, INET_ADDRSTRLEN);
