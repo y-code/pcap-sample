@@ -23,8 +23,8 @@ int main(int argc, char **argv) {
     }
 
     try {
-	    ypcap::TrafficAggry service;
-	    service.Process();
+        ypcap::TrafficAggry service;
+        service.Process();
     } catch (std::exception const &ex) {
         std::cerr << "[ERROR] " << ex.what() << std::endl;
         return 1;

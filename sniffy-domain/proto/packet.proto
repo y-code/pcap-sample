@@ -1,13 +1,33 @@
 syntax = "proto3";
 
+import "google/protobuf/timestamp.proto";
+
 package ypcap0;
 
+message IpAddress {
+    enum AddressVersion {
+        v4 = 0;
+        v6 = 1;
+    }
+
+    AddressVersion version = 1;
+    bytes address = 2;
+}
+
 message IpPacket {
-  bool v6 = 1;
-  string srcAddress = 2;
-  string dstAddress = 3;
-  uint32 srcPort = 4;
-  uint32 dstPort = 5;
-  uint32 size = 6;
+    IpAddress srcAddress = 1;
+    IpAddress dstAddress = 2;
+    uint32 srcPort = 3;
+    uint32 dstPort = 4;
+    uint32 size = 5;
+}
+
+message TrafficMetric {
+    google.protobuf.Timestamp timestamp = 1;
+    IpAddress srcAddress = 2;
+    IpAddress dstAddress = 3;
+    uint32 port = 4;
+    uint32 count = 5;
+    uint32 size = 6;
 }
 

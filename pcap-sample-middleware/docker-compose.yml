@@ -7,7 +7,7 @@ services:
     hostname: kafka
     container_name: kafka
     ports:
-      - "9092:9093"
+      - "9093:9093"
       - "9101:9101"
     expose:
       - 9092
@@ -20,7 +20,7 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9101
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://0.0.0.0:9093,CONTROLLER://kafka:9101
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://${FQDN}:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://${FQDN}:9093
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LOG_DIRS: /var/lib/kafka/data
@@ -43,6 +43,50 @@ services:
       JVM_OPTS: "-Xms32M -Xmx64M"
     depends_on:
       - kafka
+    networks:
+      - kafka-network
+
+  kafka-connect:
+    image: ycode/kafka-connect:7.6.1
+    hostname: kafka-connect
+    container_name: kafka-connect
+    ports:
+      - "8083:8083"
+    volumes:
+      - "${CONNECT_PLUGIN_YPCAP}:/usr/share/confluent-hub-components/ypcap.jar"
+      - "${CONNECT_PLUGIN_DEP_HAMCREST}:/usr/share/confluent-hub-components/hamcrest-core.jar"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: "kafka:9092"
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: "kafka-connect-group"
+      CONNECT_CONFIG_STORAGE_TOPIC: "connect-configs"
+      CONNECT_OFFSET_STORAGE_TOPIC: "connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "connect-status"
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_REPLICATION_FACTOR: 1  # Ensures that internal topics are created with a replication factor of 1
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_REST_ADVERTISED_HOST_NAME: ${FQDN}
+    depends_on:
+      - kafka
+    networks:
+      - kafka-network
+
+  postgresql:
+    image: postgres:16.3
+    container_name: postgresql
+    hostname: postgresql
+    ports:
+      - "5432:5432"
+    volumes:
+      - "./postgresql:/var/lib/postgresql/data"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
     networks:
       - kafka-network
 

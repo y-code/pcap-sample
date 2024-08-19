@@ -20,9 +20,9 @@ int Sniffer::Run(std::string *dev) const {
     pcap_t *handle = NULL;
     char errbuf[PCAP_ERRBUF_SIZE];
     int result;
-    bpf_u_int32 mask;                   /* The netmask of our sniffing device */
-    bpf_u_int32 net;                    /* The IP of the sniffing device */
-    //std::string filter_exp = "dst port 443"; /* The filter expression */
+    bpf_u_int32 mask;            /* The netmask of our sniffing device */
+    bpf_u_int32 net;             /* The IP of the sniffing device */
+    // std::string filter_exp = "dst port 443"; /* The filter expression */
     std::string filter_exp = ""; /* The filter expression */
 
     result = this->GetDevice(&dev, &net, &mask);
@@ -39,7 +39,7 @@ int Sniffer::Run(std::string *dev) const {
     //result = this->ProcessNext(handle);
     //result = this->Process(handle, 10);
     result = this->Process(handle, 0);
-    
+
     pcap_close(handle);
 
     return result;
@@ -59,7 +59,7 @@ int Sniffer::GetDevice(std::string **dev, bpf_u_int32 *net, bpf_u_int32 *mask) c
     }
 
     if (pcap_lookupnet((*dev)->c_str(), net , mask, errbuf) == -1) {
-	if (this->_isVerbose)
+        if (this->_isVerbose)
             std::cout << "Cannot get netmask for dvice " << **dev << ": " << errbuf << std::endl;
         *net = 0;
         *mask = 0;
@@ -122,16 +122,14 @@ int Sniffer::ProcessNext(pcap_t *handle) const {
 }
 
 int Sniffer::Process(pcap_t *handle, int cnt) const {
-    u_char user[] = { this->_isVerbose };
-
     if (this->_isVerbose)
         std::cout << "Loop Count: " << cnt << std::endl;
 
-    int result = pcap_loop(handle, cnt, &Sniffer::HandlePacket, user);
+    int result = pcap_loop(handle, cnt, &Sniffer::HandlePacketWrapper, reinterpret_cast<u_char *>(const_cast<Sniffer *>(this)));
     //int result = pcap_dispatch(handle, cnt, &Sniffer::HandlePacket, user);
 
     switch (result) {
-	    case 0:
+        case 0:
             std::cout << "Completed." << std::endl;
             break;
         case PCAP_ERROR_BREAK:
@@ -153,10 +151,13 @@ int Sniffer::Process(pcap_t *handle, int cnt) const {
     return 0;
 }
 
-void Sniffer::HandlePacket(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
-    bool isVerbose = user[0];
+void Sniffer::HandlePacketWrapper(u_char *user, const struct pcap_pkthdr *h, const u_char *bytes) {
+    Sniffer *instance = reinterpret_cast<Sniffer *>(user);
+    instance->HandlePacket(h, bytes);
+}
 
-    if (isVerbose) {
+void Sniffer::HandlePacket(const struct pcap_pkthdr *h, const u_char *bytes) {
+    if (this->_isVerbose) {
         std::cout << "=====================================" << std::endl;
         std::cout << "Packet Length: " << h->len << std::endl;
     }
@@ -164,7 +165,7 @@ void Sniffer::HandlePacket(u_char *user, const struct pcap_pkthdr *h, const u_ch
     struct ether_header *eth_hdr = (struct ether_header*)bytes;
     u_short ether_type = ntohs(eth_hdr->ether_type);
 
-    if (isVerbose)
+    if (this->_isVerbose)
         std::cout << "Ether Type: " << ether_type << std::endl;
 
     if (ether_type != ETHERTYPE_IP)
@@ -173,36 +174,46 @@ void Sniffer::HandlePacket(u_char *user, const struct pcap_pkthdr *h, const u_ch
     ypcap0::IpPacket pkt;
     struct ip *ip_header = (struct ip*)(bytes + sizeof(struct ether_header));
     struct tcphdr *tcp = (struct tcphdr*)(bytes + sizeof(struct ether_header) + ip_header->ip_hl * 4);
-    char* base64 = new char[256];
 
-    if (isVerbose)
+    if (this->_isVerbose)
         std::cout << "IP Version: " << ip_header->ip_v << std::endl;
 
-    char src_ip[INET_ADDRSTRLEN], dst_ip[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &(ip_header->ip_src), src_ip, INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, &(ip_header->ip_dst), dst_ip, INET_ADDRSTRLEN);
+    // ignore packets with IP addresses other than v4
+    if (ip_header->ip_v != 4u)
+        return;
 
-    if (isVerbose) {
+    if (this->_isVerbose) {
+        char src_ip[INET_ADDRSTRLEN], dst_ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(ip_header->ip_src), src_ip, INET_ADDRSTRLEN);
+        inet_ntop(AF_INET, &(ip_header->ip_dst), dst_ip, INET_ADDRSTRLEN);
+
         std::cout << "From " << src_ip << " to " << dst_ip << std::endl;
         std::cout << "From " << ntohs(tcp->th_sport) << " to " << ntohs(tcp->th_dport) << std::endl;
     }
 
-    pkt.set_v6(false);
-    pkt.set_srcaddress(src_ip);
-    pkt.set_dstaddress(dst_ip);
+//    pkt.set_v6(false);
+//    pkt.set_srcaddress(src_ip);
+//    pkt.set_dstaddress(dst_ip);
+    ypcap0::IpAddress ip_src, ip_dst;
+    ip_src.set_version(ypcap0::IpAddress::v4);
+    ip_src.set_address(reinterpret_cast<const char *>(&(ip_header->ip_src)), sizeof(ip_header->ip_src));
+    ip_dst.set_version(ypcap0::IpAddress::v4);
+    ip_dst.set_address(reinterpret_cast<const char *>(&(ip_header->ip_dst)), sizeof(ip_header->ip_dst));
+    *pkt.mutable_srcaddress() = ip_src;
+    *pkt.mutable_dstaddress() = ip_dst;
     pkt.set_srcport(ntohs(tcp->th_sport));
     pkt.set_dstport(ntohs(tcp->th_dport));
     pkt.set_size(h->len);
     std::string serializedData;
     pkt.SerializeToString(&serializedData);
 
-    //boost::beast::detail::base64::encode(base64, serializedData.c_str(), serializedData.length());
-    boost::beast::detail::base64::encode(base64, &serializedData[0], serializedData.length());
+    char* base64 = new char[256];
+    boost::beast::detail::base64::encode(base64, serializedData.c_str(), serializedData.length());
     std::string strBase64(base64);
 
     delete[] base64;
 
-    if (isVerbose) {
+    if (this->_isVerbose) {
         std::cout << "Serialized: " << strBase64 << std::endl;
         std::cout << "=====================================" << std::endl;
     } else {
