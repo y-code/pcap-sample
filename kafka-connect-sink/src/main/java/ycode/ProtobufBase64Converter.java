@@ -9,9 +9,11 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 
 import java.util.Map;
 import java.util.Base64;
+import java.util.Date;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
+import com.google.protobuf.Timestamp;
 
 import ypcap0.Packet;
 
@@ -33,6 +35,7 @@ public class ProtobufBase64Converter implements Converter {
             Packet.TrafficMetric message = Packet.TrafficMetric.parseFrom(decodedBytes);
 
             Schema schema = SchemaBuilder.struct()
+                .field("timestamp", SchemaBuilder.int64().name("org.apache.kafka.connect.data.Timestamp").build())
                 .field("src_version", Schema.INT16_SCHEMA)
                 .field("src_address", Schema.BYTES_SCHEMA)
                 .field("dst_version", Schema.INT16_SCHEMA)
@@ -42,6 +45,7 @@ public class ProtobufBase64Converter implements Converter {
                 .field("size", Schema.INT32_SCHEMA)
                 .build();
             Struct struct = new Struct(schema);
+            struct.put("timestamp", new Date(message.getTimestamp().getSeconds() * 1000 + message.getTimestamp().getNanos() / 1000000));
             if (message.getSrcAddress().getVersion() == Packet.IpAddress.AddressVersion.v4)
                 struct.put("src_version", (short)4);
             else if (message.getSrcAddress().getVersion() == Packet.IpAddress.AddressVersion.v6)

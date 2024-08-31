@@ -42,10 +42,14 @@ void TrafficAggry::flush() {
         lock.unlock();
 
         const auto now = std::chrono::system_clock::now();
-        const std::time_t timestamp = std::chrono::system_clock::to_time_t(now);
-        const std::tm tm_timestamp = *std::localtime(&timestamp);
 
         if (true) {
+            auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+            auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count() % 1000000000;
+            google::protobuf::Timestamp timestamp;
+            timestamp.set_seconds(seconds);
+            timestamp.set_nanos(nanos);
+
             // std::cout << "---" << std::endl;
             for (const auto& pair : *oldMap) {
                 auto k = pair.first;
@@ -58,6 +62,7 @@ void TrafficAggry::flush() {
                 dst.set_address(reinterpret_cast<const char *>(&(std::get<1>(k))), sizeof(std::get<1>(k)));
 
                 ypcap0::TrafficMetric metric;
+                *metric.mutable_timestamp() = timestamp;
                 *metric.mutable_srcaddress() = src;
                 *metric.mutable_dstaddress() = dst;
                 metric.set_port(std::get<2>(k));
@@ -77,6 +82,9 @@ void TrafficAggry::flush() {
                 this->mProducer->produce("traffic", base64Serialized);
             }
         } else {
+            const std::time_t timestamp = std::chrono::system_clock::to_time_t(now);
+            const std::tm tm_timestamp = *std::localtime(&timestamp);
+
             for (const auto& pair : *oldMap) {
                 auto k = pair.first;
                 auto v = pair.second;
