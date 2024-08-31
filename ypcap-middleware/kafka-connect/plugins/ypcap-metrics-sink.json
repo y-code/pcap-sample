@@ -1,0 +1,19 @@
+{
+  "name": "ypcap-metrics-sink",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "tasks.max": "1",
+    "topics": "traffic",
+    "connection.url": "jdbc:postgresql://postgresql:5432/sniffy",
+    "connection.user": "postgres",
+    "connection.password": "postgres",
+    "auto.create": "true",
+    "auto.evolve": "true",
+    "insert.mode": "insert",
+    "key.converter": "org.apache.kafka.connect.converters.ByteArrayConverter",
+    "value.converter": "ycode.ypcap.ProtobufBase64Converter",
+    "value.converter.schema.registry.url": "http://localhost:8081",
+    "table.name.format": "traffic_metrics"
+  }
+}
+
