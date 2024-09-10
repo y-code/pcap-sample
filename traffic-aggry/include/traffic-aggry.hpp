@@ -36,6 +36,7 @@ class TrafficAggry {
 
 public:
     TrafficAggry();
+    TrafficAggry(std::shared_ptr<ypcap::KafkaProducerFactory> producerFactory, std::string &topic);
     ~TrafficAggry();
     void Process();
 
@@ -43,9 +44,20 @@ private:
     std::mutex mtx;
     std::condition_variable cv;
     std::atomic<bool> isFinished{false};
-    std::unordered_map<std::tuple<in_addr, in_addr, uint>, std::tuple<uint, uint>, TrafficHeaderHash, TrafficHeaderEqual> *map;
+    // The aggregation buffer by up-address, down-address, and up-port,
+    // where those keys are defined as:
+    //   * up-port: the smallest number among source port number and destination port number of a packet
+    //   * up-address: the source/destination address who uses the up-port port
+    //   * down-address: the source/destination address who does not use the up-port port
+    // where the following data are aggregated:
+    //   * count:      the number of packets whose source/destination port is up-port
+    //   * up-size:    the data size uploaded from the down-address to the up-address
+    //   * down-size:  the data size downloaded from the up-address to the down-address
+    //   * down-ports: a list of the ports used by the down-address
+    std::unordered_map<std::tuple<in_addr, in_addr, uint>, std::tuple<uint, uint, uint, std::unordered_set<uint>>, TrafficHeaderHash, TrafficHeaderEqual> *map;
     std::chrono::milliseconds flushInterval{1000};
-    std::unique_ptr<ypcap::KafkaProducerFactory> mProducerFactory;
+    std::shared_ptr<ypcap::KafkaProducerFactory> mProducerFactory;
+    std::string mTopic;
     std::unique_ptr<ypcap::KafkaProducer> mProducer;
 
     void flush();

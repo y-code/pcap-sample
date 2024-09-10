@@ -5,7 +5,7 @@ set( CMAKE_CXX_STANDARD_REQUIRED ON )
 
 file( GLOB_RECURSE src ${CMAKE_CURRENT_LIST_DIR}/src/* )
 
-find_package( Boost 1.85.0 REQUIRED EXACT
+find_package( Boost 1.86.0 REQUIRED EXACT
 REQUIRED COMPONENTS
 	program_options
 )

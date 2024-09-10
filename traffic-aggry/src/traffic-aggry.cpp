@@ -18,11 +18,12 @@ struct std::hash<in_addr> {
 
 namespace ypcap {
 
-TrafficAggry::TrafficAggry() {
-    this->mProducerFactory = std::make_unique<ypcap::KafkaProducerFactory>("localhost:9093");
+TrafficAggry::TrafficAggry() {}
+
+TrafficAggry::TrafficAggry(std::shared_ptr<ypcap::KafkaProducerFactory> producerFactory, std::string &topic)
+        : mProducerFactory(producerFactory), mTopic(topic) {
     this->mProducer = this->mProducerFactory->open();
     RdKafka::Conf *topicConf = RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC);
-    std::string topic = "traffic";
     this->mProducer->setupTopic(topic, topicConf);
 }
 
@@ -31,7 +32,7 @@ TrafficAggry::~TrafficAggry() {
 
 void TrafficAggry::flush() {
     while (!this->isFinished) {
-        auto *newMap = new std::unordered_map<std::tuple<in_addr, in_addr, uint>, std::tuple<uint, uint>, TrafficHeaderHash, TrafficHeaderEqual>{};
+        auto *newMap = new std::unordered_map<std::tuple<in_addr, in_addr, uint>, std::tuple<uint, uint, uint, std::unordered_set<uint>>, TrafficHeaderHash, TrafficHeaderEqual>{};
 
         std::unique_lock<std::mutex> lock(this->mtx);
         this->cv.wait_for(lock, this->flushInterval, [this] { return this->isFinished.load(); });
@@ -43,7 +44,8 @@ void TrafficAggry::flush() {
 
         const auto now = std::chrono::system_clock::now();
 
-        if (true) {
+        if (this->mProducer) {
+
             auto seconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
             auto nanos = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count() % 1000000000;
             google::protobuf::Timestamp timestamp;
@@ -55,19 +57,21 @@ void TrafficAggry::flush() {
                 auto k = pair.first;
                 auto v = pair.second;
 
-                ypcap0::IpAddress src, dst;
-                src.set_version(ypcap0::IpAddress::v4);
-                src.set_address(reinterpret_cast<const char *>(&(std::get<0>(k))), sizeof(std::get<0>(k)));
-                dst.set_version(ypcap0::IpAddress::v4);
-                dst.set_address(reinterpret_cast<const char *>(&(std::get<1>(k))), sizeof(std::get<1>(k)));
+                ypcap0::IpAddress up, down;
+                up.set_version(ypcap0::IpAddress::v4);
+                up.set_address(reinterpret_cast<const char *>(&(std::get<0>(k))), sizeof(std::get<0>(k)));
+                down.set_version(ypcap0::IpAddress::v4);
+                down.set_address(reinterpret_cast<const char *>(&(std::get<1>(k))), sizeof(std::get<1>(k)));
 
                 ypcap0::TrafficMetric metric;
                 *metric.mutable_timestamp() = timestamp;
-                *metric.mutable_srcaddress() = src;
-                *metric.mutable_dstaddress() = dst;
-                metric.set_port(std::get<2>(k));
-                metric.set_count(std::get<0>(v));
-                metric.set_size(std::get<1>(v));
+                *metric.mutable_upaddress() = up;
+                *metric.mutable_downaddress() = down;
+                metric.set_upport(std::get<2>(k));
+                metric.set_upsize(std::get<1>(v));
+                metric.set_downsize(std::get<2>(v));
+                for (const uint& downPort : std::get<3>(v))
+                    metric.add_downports(downPort);
 
                 std::string serialized;
                 metric.SerializeToString(&serialized);
@@ -79,27 +83,37 @@ void TrafficAggry::flush() {
 
                 std::cout << base64Serialized << std::endl;
 
-                this->mProducer->produce("traffic", base64Serialized);
+                this->mProducer->produce(this->mTopic, base64Serialized);
             }
+
         } else {
+
             const std::time_t timestamp = std::chrono::system_clock::to_time_t(now);
             const std::tm tm_timestamp = *std::localtime(&timestamp);
 
             for (const auto& pair : *oldMap) {
                 auto k = pair.first;
                 auto v = pair.second;
-                char src[INET_ADDRSTRLEN], dst[INET_ADDRSTRLEN];
-                inet_ntop(AF_INET, &std::get<0>(k), src, INET_ADDRSTRLEN);
-                inet_ntop(AF_INET, &std::get<1>(k), dst, INET_ADDRSTRLEN);
+
+                char upAddr[INET_ADDRSTRLEN], downAddr[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, &std::get<0>(k), upAddr, INET_ADDRSTRLEN);
+                inet_ntop(AF_INET, &std::get<1>(k), downAddr, INET_ADDRSTRLEN);
                 std::cout << "{ ";
                 std::cout << "\"timestamp\": \"" << std::put_time(&tm_timestamp, "%Y-%m-%dT%H:%M:%S") << "\", ";
-                std::cout << "\"src\": \"" << src << "\", ";
-                std::cout << "\"dst\": \"" << dst << "\", ";
-                std::cout << "\"port\": \"" << std::get<2>(k) << "\", ";
+                std::cout << "\"up\": \"" << upAddr << "\", ";
+                std::cout << "\"down\": \"" << downAddr << "\", ";
+                std::cout << "\"upPort\": \"" << std::get<2>(k) << "\", ";
+                std::cout << "\"downPorts\": [ ";
+                for (const uint &port : std::get<3>(v)) {
+                    std::cout << port << ", ";
+                }
+                std::cout << "] ";
                 std::cout << "\"count\": \"" << std::get<0>(v) << "\", ";
-                std::cout << "\"size\": \"" << std::get<1>(v) << "\" ";
+                std::cout << "\"upSize\": \"" << std::get<1>(v) << "\", ";
+                std::cout << "\"downSize\": \"" << std::get<2>(v) << "\" ";
                 std::cout << "}" << std::endl;
             }
+
         }
 
         delete oldMap;
@@ -112,7 +126,7 @@ void TrafficAggry::Process() {
     std::thread flusher(&TrafficAggry::flush, this);
 
     std::string line;
-    map = new std::unordered_map<std::tuple<in_addr, in_addr, uint>, std::tuple<uint, uint>, TrafficHeaderHash, TrafficHeaderEqual>{};
+    map = new std::unordered_map<std::tuple<in_addr, in_addr, uint>, std::tuple<uint, uint, uint, std::unordered_set<uint>>, TrafficHeaderHash, TrafficHeaderEqual>{};
 
     while (std::getline(std::cin, line)) {
         const char *cline = line.c_str();
@@ -121,22 +135,34 @@ void TrafficAggry::Process() {
         std::string sline(deserialized);
         ypcap0::IpPacket pkt;
         pkt.ParseFromString(sline);
-        uint port = pkt.srcport() < pkt.dstport() ? pkt.srcport() : pkt.dstport();
 
         std::lock_guard<std::mutex> lock(this->mtx);
 
         in_addr ip_src = *(reinterpret_cast<const in_addr *>(pkt.srcaddress().address().c_str()));
         in_addr ip_dst = *(reinterpret_cast<const in_addr *>(pkt.dstaddress().address().c_str()));
-//        char src_ip[INET_ADDRSTRLEN], dst_ip[INET_ADDRSTRLEN];
-//        inet_ntop(AF_INET, &(ip_src), src_ip, INET_ADDRSTRLEN);
-//        inet_ntop(AF_INET, &(ip_dst), dst_ip, INET_ADDRSTRLEN);
+        // char src_ip[INET_ADDRSTRLEN], dst_ip[INET_ADDRSTRLEN];
+        // inet_ntop(AF_INET, &(ip_src), src_ip, INET_ADDRSTRLEN);
+        // inet_ntop(AF_INET, &(ip_dst), dst_ip, INET_ADDRSTRLEN);
 
-        //auto &buffer = (*map)[{ pkt.srcaddress().address(), pkt.dstaddress().address(), port }];
-//        auto &buffer = (*map)[{ std::string(src_ip), std::string(dst_ip), port }];
-        auto &buffer = (*map)[{ ip_src, ip_dst, port }];
+        if (pkt.srcport() < pkt.dstport()) {
+            uint port = pkt.srcport();
 
-        std::get<0>(buffer)++;
-        std::get<1>(buffer) += pkt.size();
+            // auto &buffer = (*map)[{ pkt.upaddress().address(), pkt.downaddress().address(), port }];
+            // auto &buffer = (*map)[{ std::string(src_ip), std::string(dst_ip), port }];
+            auto &buffer = (*map)[{ ip_src, ip_dst, port }];
+
+            std::get<0>(buffer)++;
+            std::get<2>(buffer) += pkt.size();
+            std::get<3>(buffer).insert(pkt.dstport());
+        } else {
+            uint port = pkt.dstport();
+
+            auto &buffer = (*map)[{ ip_dst, ip_src, port }];
+
+            std::get<0>(buffer)++;
+            std::get<1>(buffer) += pkt.size();
+            std::get<3>(buffer).insert(pkt.srcport());
+        }
 
         this->cv.notify_one();
 

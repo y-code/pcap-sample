@@ -24,10 +24,11 @@ message IpPacket {
 
 message TrafficMetric {
     google.protobuf.Timestamp timestamp = 1;
-    IpAddress srcAddress = 2;
-    IpAddress dstAddress = 3;
-    uint32 port = 4;
-    uint32 count = 5;
-    uint32 size = 6;
+    IpAddress upAddress = 21;
+    uint32 upPort = 22;
+    uint32 upSize = 23;
+    IpAddress downAddress = 41;
+    repeated uint32 downPorts = 42;
+    uint32 downSize = 43;
 }
 

@@ -36,33 +36,35 @@ public class ProtobufBase64Converter implements Converter {
 
             Schema schema = SchemaBuilder.struct()
                 .field("timestamp", SchemaBuilder.int64().name("org.apache.kafka.connect.data.Timestamp").build())
-                .field("src_version", Schema.INT16_SCHEMA)
-                .field("src_address", Schema.BYTES_SCHEMA)
-                .field("dst_version", Schema.INT16_SCHEMA)
-                .field("dst_address", Schema.BYTES_SCHEMA)
-                .field("port", Schema.INT32_SCHEMA)
-                .field("count", Schema.INT32_SCHEMA)
-                .field("size", Schema.INT32_SCHEMA)
+                .field("up_version", Schema.INT16_SCHEMA)
+                .field("up_address", Schema.BYTES_SCHEMA)
+                .field("down_version", Schema.INT16_SCHEMA)
+                .field("down_address", Schema.BYTES_SCHEMA)
+                .field("up_port", Schema.INT32_SCHEMA)
+                .field("down_ports", SchemaBuilder.array(Schema.INT32_SCHEMA).build())
+                .field("up_size", Schema.INT32_SCHEMA)
+                .field("down_size", Schema.INT32_SCHEMA)
                 .build();
             Struct struct = new Struct(schema);
             struct.put("timestamp", new Date(message.getTimestamp().getSeconds() * 1000 + message.getTimestamp().getNanos() / 1000000));
-            if (message.getSrcAddress().getVersion() == Packet.IpAddress.AddressVersion.v4)
-                struct.put("src_version", (short)4);
-            else if (message.getSrcAddress().getVersion() == Packet.IpAddress.AddressVersion.v6)
-                struct.put("src_version", (short)6);
+            if (message.getUpAddress().getVersion() == Packet.IpAddress.AddressVersion.v4)
+                struct.put("up_version", (short)4);
+            else if (message.getUpAddress().getVersion() == Packet.IpAddress.AddressVersion.v6)
+                struct.put("up_version", (short)6);
             else
-                struct.put("src_version", (short)0);
-            struct.put("src_address", message.getSrcAddress().getAddress().toByteArray());
-            if (message.getDstAddress().getVersion() == Packet.IpAddress.AddressVersion.v4)
-                struct.put("dst_version", (short)4);
-            else if (message.getDstAddress().getVersion() == Packet.IpAddress.AddressVersion.v6)
-                struct.put("dst_version", (short)6);
+                struct.put("up_version", (short)0);
+            struct.put("up_address", message.getUpAddress().getAddress().toByteArray());
+            if (message.getDownAddress().getVersion() == Packet.IpAddress.AddressVersion.v4)
+                struct.put("down_version", (short)4);
+            else if (message.getDownAddress().getVersion() == Packet.IpAddress.AddressVersion.v6)
+                struct.put("down_version", (short)6);
             else
-                struct.put("dst_version", (short)0);
-            struct.put("dst_address", message.getDstAddress().getAddress().toByteArray());
-            struct.put("port", message.getPort());
-            struct.put("count", message.getCount());
-            struct.put("size", message.getSize());
+                struct.put("down_version", (short)0);
+            struct.put("down_address", message.getDownAddress().getAddress().toByteArray());
+            struct.put("up_port", message.getUpPort());
+            struct.put("down_ports", message.getDownPortsList());
+            struct.put("up_size", message.getUpSize());
+            struct.put("down_size", message.getDownSize());
 
             return new SchemaAndValue(struct.schema(), struct);
         } catch (InvalidProtocolBufferException e) {
