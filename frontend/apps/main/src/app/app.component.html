@@ -1,0 +1,28 @@
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <div class="container-fluid">
+    <a class="navbar-brand" routerLink="/">Sniffy</a>
+    <button
+      class="navbar-toggler"
+      [attr.aria-expanded]="isNavBarCollapsed"
+      (click)="collapse.toggle()"
+      aria-label="Toggle navigation"
+    >
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div #collapse="ngbCollapse" [(ngbCollapse)]="isNavBarCollapsed" class="collapse navbar-collapse">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link" routerLink="/force-graph-sample-1">Network Traffic</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="content">
+  <div class="left"></div>
+  <main>
+    <router-outlet></router-outlet>
+  </main>
+  <div class="right"></div>
+</div>

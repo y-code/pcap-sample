@@ -1,0 +1,24 @@
+/* You can add global styles to this file, and also import other style files */
+
+/* Importing Bootstrap SCSS file. */
+@import 'bootstrap/scss/bootstrap';
+
+app-root {
+  width: 100%;
+  height: 100vh;
+
+  display: flex;
+  flex-direction: column;
+}
+
+h5 {
+  text-align: center;
+}
+
+.node-label {
+  text-align: center;
+
+  .protocol {
+    font-size: smaller;
+  }
+}
