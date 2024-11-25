@@ -99,6 +99,8 @@ ClientBin/
 
 *.publishsettings
 
+.idea/
+
 # RIA/Silverlight projects
 Generated_Code/
 

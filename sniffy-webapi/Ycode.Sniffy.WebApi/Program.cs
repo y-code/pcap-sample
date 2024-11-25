@@ -1,12 +1,15 @@
 using Ycode.Sniffy.Domain;
 using Microsoft.EntityFrameworkCore;
+using Ycode.Sniffy.WebApi;
 
 const string CORS_POLICY_FRONTEND = nameof(CORS_POLICY_FRONTEND);
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<SniffyWebApiConfig>(builder.Configuration);
+
 builder.Services.AddDbContext<SniffyDbContext>((serviceProvider, options) => {
-    options.UseNpgsql("Host=localhost;Port=5432;Database=sniffy;Username=postgres;Password=postgres");
+    options.UseNpgsql(builder.Configuration.GetConnectionString("SniffyDb"));
 });
 builder.Services.AddControllers();
 builder.Services.AddCors(options => {

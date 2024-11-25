@@ -3,6 +3,43 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Ycode.Sniffy.Domain;
 
+[Table("traffic_metrics")]
+public class TrafficMetrics
+{
+    // [Key]
+    // [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    // [Column("id")]
+    // public int Id { get; set; }
+    
+    [Column("timestamp")]
+    public DateTimeOffset Timestamp { get; set; }
+
+    [Column("up_version")]
+    public short UpVersion { get; set; }
+    
+    [Column("up_address")]
+    public byte[] UpAddress { get; set; }
+    
+    [Column("down_version")]
+    public short DownVersion { get; set; }
+    
+    [Column("down_address")]
+    public byte[] DownAddress { get; set; }
+    
+    [Column("up_port")]
+    public int UpPort { get; set; }
+    
+    [Column("down_ports")]
+    public int[] DownPort { get; set; }
+    
+    [Column("up_size")]
+    public long UpSize { get; set; }
+    
+    [Column("down_size")]
+    public long DownSize { get; set; }
+}
+
+[NotMapped]
 public class EndpointModel {
     [Column("id")]
     [Key()]
@@ -13,6 +50,7 @@ public class EndpointModel {
     public byte[] Address { get; set; } = Array.Empty<byte>();
 }
 
+[NotMapped]
 public class ProtocolClientModel {
     [Column("id")]
     [Key()]
@@ -27,6 +65,7 @@ public class ProtocolClientModel {
     public int[] Ports { get; set; }
 }
 
+[NotMapped]
 public class ProtocolServerModel {
     [Column("id")]
     [Key()]
@@ -39,6 +78,7 @@ public class ProtocolServerModel {
     public int Port { get; set; }
 }
 
+[NotMapped]
 public class EndpointProtocolClientModel {
     [Column("id")]
     [Key()]
@@ -53,6 +93,7 @@ public class EndpointProtocolClientModel {
     public ProtocolClientModel? End { get; set; }
 }
 
+[NotMapped]
 public class EndpointProtocolServerModel {
     [Column("id")]
     [Key()]
@@ -67,6 +108,7 @@ public class EndpointProtocolServerModel {
     public ProtocolServerModel? End { get; set; }
 }
 
+[NotMapped]
 public class TrafficModel {
     [Column("id")]
     [Key()]

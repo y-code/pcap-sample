@@ -4,7 +4,7 @@ export const appRoutes: Route[] = [
   {
     path: '',
     pathMatch: 'full',
-    redirectTo: 'aframe-sample-1',
+    redirectTo: 'force-graph-sample-1',
   },
   {
     path: 'threejs-sample',
