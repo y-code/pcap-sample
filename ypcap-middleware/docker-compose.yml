@@ -47,7 +47,8 @@ services:
       - kafka-network
 
   kafka-connect:
-    image: ycode/kafka-connect:7.6.1
+    # image: ycode/kafka-connect:7.6.1
+    build: ./kafka-connect
     hostname: kafka-connect
     container_name: kafka-connect
     ports:

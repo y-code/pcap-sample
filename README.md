@@ -12,35 +12,27 @@ Every network endpoint in the diagram has an IP address and communication protoc
 
 ## Development
 
-### 1. Build Custom Kafka Connect Sink
+### 1. Build Custom Kafka Connect Value Converter
 
-This Kafka Connect Sink reads the sniffy protobuf data from a topic and store it in the PostgreSQL database.
+When Kafka Connect JDBC Sink reads the sniffy protobuf data, it needs a custom value converter to read and deserialize the data from a topic and map it to the database shcema.
 
 Build it with the command below.
 
 ```
-docker run --rm -it --name java-dev -v $HOME/.m2/:/root/.m2/ -v $REPO_ROOT:/tmp/ -w /tmp/kafka-connect-sink maven:3.9.9-amazoncorretto-8-debian bash -c "apt-get update -y && apt-get install -y protobuf-compiler && mvn clean package"
+docker run --rm -it --name java-dev -v $HOME/.m2/:/root/.m2/ -v ${REPO_ROOT}:/tmp/ -w /tmp/kafka-connect-sink maven:3.9.9-amazoncorretto-8-debian bash -c "apt-get update -y && apt-get install -y protobuf-compiler && mvn clean package"
 ```
 
-### 2. Build Kafka Connect Docker Image
-
-To pre-install Kafka Connect's JDBC library using `confluent-hub` utility, build a custom Kafka Connect docker image.
-
-```
-docker build -t ycode/kafka-connect:7.6.1 -f ./ypcap-middleware/kafka-connect/Dockerfile .
-```
-
-The docker image tag name can be whatever, but it just needs to match the kafka-connect service's image tag in the docker-compose.yml.
-
-### 3. Run Docker Containers
+### 2. Run Docker Containers
 
 Let's run four required docker containers by docker compose. It will start Kafka, Kafka Connect, Kafdrop, and PostgreSQL servers in the containers.
+
+[NOTE] For the Kafka Connect container, the docker builder will run to install Kafka Connect's JDBC sink plugin library using `confluent-hub` utility.
 
 ```
 docker compose --project-directory ./ypcap-middleware up -d
 ```
 
-### 4. Initialize Database
+### 3. Initialize Database
 
 To create the `sniffy` database and tables in it, run the following Entity Framework command.
 
@@ -49,6 +41,14 @@ dotnet ef database update --project ./sniffy-webapi/Ycode.Sniffy.Domain
 ```
 
 NOTE: The Kafka Connect Sink can also create the required table, but it cannot create the database.
+
+### 4. Set up JDBC Sink in Kafka Connect
+
+Set up a JDBC sink with a custom value converter, built in the step 1 above.
+
+```
+curl -X POST -H "Content-Type: application/json" --data @${REPO_ROOT}/ypcap-middleware/kafka-connect/plugins/ypcap-metrics-sink.json http://localhost:8083/connectors
+```
 
 ### 5. Install Protobuf Compiler
 
