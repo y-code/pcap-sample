@@ -44,10 +44,16 @@ NOTE: The Kafka Connect Sink can also create the required table, but it cannot c
 
 ### 4. Set up JDBC Sink in Kafka Connect
 
-Set up a JDBC sink with a custom value converter, built in the step 1 above.
+Set up a JDBC sink with a custom value converter, which was built in the step 1 above, by sending a sink configuration to the Kafka Connect API.
 
 ```
 curl -X POST -H "Content-Type: application/json" --data @${REPO_ROOT}/ypcap-middleware/kafka-connect/plugins/ypcap-metrics-sink.json http://localhost:8083/connectors
+```
+
+If the sink setup was successful, the command below will show _RUNNING_ status.
+
+```
+curl -X GET http://localhost:8083/connectors/ypcap-metrics-sink/status
 ```
 
 ### 5. Install Protobuf Compiler
